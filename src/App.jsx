@@ -42,7 +42,7 @@ function App() {
               </ProtectedRoute>
             } />
             
-            <Route path="/" element={
+            <Route path="/results" element={
               <ProtectedRoute>
                 <Navbar />
                 <Results />

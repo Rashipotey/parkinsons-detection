@@ -51,44 +51,51 @@ const DrawingTest = () => {
     setError('');
 
     try {
-      // Upload to Cloudinary
-      const cloudinaryData = await uploadToCloudinary(selectedFile, 'parkinsons-drawings');
+  const formData = new FormData();
+  formData.append("image", selectedFile);
 
-      if (cloudinaryData.secure_url) {
-        // Simulate AI analysis (replace with actual ML model)
-        const confidence = Math.random() * 40 + 60; // Random confidence between 60-100
-        const isAffected = confidence > 75;
+  const response = await fetch("http://127.0.0.1:5000/predict_spiral", {
+    method: "POST",
+    body: formData,
+  });
 
-        // Save to Firestore
-        await addDoc(collection(db, 'testResults'), {
-          userId: currentUser.uid,
-          testType: 'drawing',
-          fileUrl: cloudinaryData.secure_url,
-          confidence: confidence,
-          isAffected: isAffected,
-          timestamp: serverTimestamp(),
-        });
+  const text = await response.text(); // read response as text
+  console.log("🧩 Raw response:", text);
 
-        // Navigate to results
-        navigate('/results', {
-          state: {
-            testType: 'drawing',
-            confidence: confidence,
-            isAffected: isAffected,
-            fileUrl: cloudinaryData.secure_url
-          }
-        });
-      } else {
-        throw new Error('Upload failed');
-      }
-    } catch (error) {
-      setError('Failed to upload file. Please try again.');
-      console.error('Upload error:', error);
-    } finally {
-      setUploading(false);
-    }
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error("Invalid JSON response from backend");
+  }
+
+  if (!response.ok) {
+    throw new Error(data.error || `Request failed with status ${response.status}`);
+  }
+
+  console.log("✅ Backend data:", data);
+
+  if (data.status !== "success") {
+    throw new Error(data.error || "Prediction failed");
+  }
+
+  const { confidence, isAffected, result } = data;
+
+  navigate("/results", {
+    state: {
+      testType: "drawing",
+      confidence,
+      isAffected,
+      result,
+    },
+  });
+} catch (err) {
+  console.error("❌ Error during prediction:", err);
+  setError(err.message || "Something went wrong. Please try again.");
+} finally {
+  setUploading(false);
+}
   };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

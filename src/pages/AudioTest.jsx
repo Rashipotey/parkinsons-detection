@@ -91,55 +91,55 @@ const AudioTest = () => {
     }
   };
 
-  const handleSubmit = async () => {
-    const fileToUpload = selectedFile || audioBlob;
-    
-    if (!fileToUpload) {
-      setError('Please record audio or select a file first');
-      return;
+ const handleSubmit = async () => {
+  const fileToUpload = selectedFile || audioBlob;
+
+  if (!fileToUpload) {
+    setError("Please record audio or select a file first");
+    return;
+  }
+
+  setUploading(true);
+  setError("");
+
+  try {
+    const formData = new FormData();
+
+    if (fileToUpload instanceof Blob && !fileToUpload.name) {
+      formData.append("file", fileToUpload, "recorded_audio.wav");
+    } else {
+      formData.append("file", fileToUpload);
     }
 
-    setUploading(true);
-    setError('');
+    const response = await fetch("http://localhost:5000/predict", {
+      method: "POST",
+      body: formData,
+    });
 
-    try {
-      // Upload to Cloudinary
-      const cloudinaryData = await uploadToCloudinary(fileToUpload, 'parkinsons-audio');
+    const data = await response.json();
 
-      if (cloudinaryData.secure_url) {
-        // Simulate AI analysis (replace with actual ML model)
-        const confidence = Math.random() * 40 + 60; // Random confidence between 60-100
-        const isAffected = confidence > 75;
+    if (response.ok) {
+      const {result, confidence, isAffected } = data;
 
-        // Save to Firestore
-        await addDoc(collection(db, 'testResults'), {
-          userId: currentUser.uid,
-          testType: 'audio',
-          fileUrl: cloudinaryData.secure_url,
-          confidence: confidence,
-          isAffected: isAffected,
-          timestamp: serverTimestamp(),
-        });
-
-        // Navigate to results
-        navigate('/results', {
-          state: {
-            testType: 'audio',
-            confidence: confidence,
-            isAffected: isAffected,
-            fileUrl: cloudinaryData.secure_url
-          }
-        });
-      } else {
-        throw new Error('Upload failed');
-      }
-    } catch (error) {
-      setError('Failed to upload file. Please try again.');
-      console.error('Upload error:', error);
-    } finally {
-      setUploading(false);
+      navigate("/results", {
+        state: {
+          testType: "audio",
+          confidence,
+          isAffected,
+          fileUrl: null
+        }
+      });
+    } else {
+      throw new Error(data.error || "Prediction failed");
     }
-  };
+  } catch (error) {
+    console.error("Prediction error:", error);
+    setError("Failed to analyze audio. Please try again.");
+  } finally {
+    setUploading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
